@@ -48,7 +48,7 @@ export function JobsPage({ cvData }: JobsPageProps) {
       title: "Técnico de operaciones / Programador de Rutas / Gestor de Operaciones de Transporte",
       company: "Importante empresa del sector",
       location: "Bogotá, D.C., Bogotá, D.C.",
-      salary: "$ 1.671.468,00 (Mensual) PRUEBA",
+      salary: "$ 1.671.468,00 (Mensual) DEV",
       type: "Contrato de Obra o labor",
       modality: "Presencial",
       postedTime: "Hace 34 minutos",
