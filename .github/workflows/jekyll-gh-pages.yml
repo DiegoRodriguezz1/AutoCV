@@ -30,8 +30,16 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # 🔥 AQUI ESTA LA MAGIA
       - name: Build project
         run: npm run build
+        env:
+          VITE_APP_ENV: ${{ secrets.VITE_APP_ENV }}
+          VITE_CV_RENDER_API_URL: ${{ secrets.VITE_CV_RENDER_API_URL }}
+          VITE_DEFAULT_LOCALE: ${{ secrets.VITE_DEFAULT_LOCALE }}
+          VITE_ENABLE_OCR: ${{ secrets.VITE_ENABLE_OCR }}
+          VITE_OCR_EXTRACT_CV_API_URL: ${{ secrets.VITE_OCR_EXTRACT_CV_API_URL }}
+          VITE_OCR_EXTRACT_CV_PREVIEW_API_URL: ${{ secrets.VITE_OCR_EXTRACT_CV_PREVIEW_API_URL }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
