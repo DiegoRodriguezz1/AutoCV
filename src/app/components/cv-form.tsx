@@ -1,4 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import { isValidEmail, getPhoneErrorMessage } from "../dto/cv-api";
+
+/**
+ * Filtra solo dígitos de un string de teléfono
+ */
+export function phoneInputFilter(value: string): string {
+  return value.replace(/\D/g, "");
+}
 
 export interface CVData {
   personalInfo: {
@@ -22,12 +31,102 @@ export interface CVData {
   skills: string[];
 }
 
+interface ValidationErrors {
+  [key: string]: string | undefined;
+}
+
 interface CVFormProps {
   data: CVData;
   onChange: (data: CVData) => void;
+  onValidationChange?: (isValid: boolean, errors: Record<string, string>) => void;
 }
 
-export function CVForm({ data, onChange }: CVFormProps) {
+function areErrorMapsEqual(
+  left: Record<string, string | undefined>,
+  right: Record<string, string | undefined>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every((key) => left[key] === right[key]);
+}
+
+export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
+  const [errors, setErrors] = useState<ValidationErrors>({});
+
+  // Validar datos en tiempo real
+  // Solo requerimos el nombre - el resto es opcional para ayudar al usuario
+  useEffect(() => {
+    const newErrors: ValidationErrors = {};
+
+    // name es obligatorio
+    if (!data.personalInfo.name.trim()) {
+      newErrors.name = "El nombre es obligatorio";
+    }
+
+    // email es completamente opcional (sin validación pedante)
+    // Solo mostrar error si tiene contenido inválido obvio
+    if (data.personalInfo.email.trim() && data.personalInfo.email.trim().length < 5) {
+      newErrors.email = "Email debe tener formato válido";
+    }
+
+    setErrors((prev) => (areErrorMapsEqual(prev, newErrors) ? prev : newErrors));
+
+    // Notificar padre si validación cambió
+    const isValid = Object.keys(newErrors).length === 0;
+    const errorsToNotify = Object.fromEntries(
+      Object.entries(newErrors).filter(([, v]) => v !== undefined)
+    ) as Record<string, string>;
+    onValidationChange?.(isValid, errorsToNotify);
+  }, [data.personalInfo, onValidationChange]);
+
+  const renderFieldWithValidation = (
+    label: string,
+    value: string,
+    fieldName: string,
+    onChangeValue: (value: string) => void,
+    placeholder: string,
+    type: string = "text",
+    isRequired: boolean = false,
+  ) => {
+    const hasError = !!errors[fieldName];
+    const isValid = !hasError && value.trim() !== "" && (type !== "email" || isValidEmail(value));
+
+    return (
+      <div>
+        <label className="block text-sm mb-2 text-gray-600">
+          <span>{label}</span>
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        <div className="relative">
+          <input
+            type={type}
+            value={value}
+            onChange={(e) => onChangeValue(e.target.value)}
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition ${
+              hasError
+                ? "border-red-300 focus:ring-red-500 bg-red-50"
+                : isValid
+                  ? "border-green-300 focus:ring-green-500 bg-green-50"
+                  : "border-gray-300 focus:ring-blue-500"
+            }`}
+            placeholder={placeholder}
+          />
+          {hasError && (
+            <AlertCircle className="absolute right-3 top-2.5 w-5 h-5 text-red-500" />
+          )}
+          {isValid && (
+            <CheckCircle className="absolute right-3 top-2.5 w-5 h-5 text-green-500" />
+          )}
+        </div>
+        {hasError && <p className="mt-1 text-xs text-red-600">{errors[fieldName]}</p>}
+      </div>
+    );
+  };
+
   const updatePersonalInfo = (field: string, value: string) => {
     onChange({
       ...data,
@@ -81,71 +180,74 @@ export function CVForm({ data, onChange }: CVFormProps) {
   const updateSkills = (value: string) => {
     onChange({
       ...data,
-      skills: value.split(",").map((s) => s.trim()).filter(Boolean),
+      skills: value
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
     });
   };
 
   return (
     <div className="h-full overflow-y-auto p-8 bg-gray-50">
-      <h2 className="text-2xl mb-6">Información de la Hoja de Vida</h2>
+      <h2 className="text-2xl mb-6 text-gray-900">Información de la Hoja de Vida</h2>
 
-      {/* Información Personal */}
-      <section className="mb-8">
-        <h3 className="text-lg mb-4 text-gray-700">Información Personal</h3>
+      {/* Sección Información Personal */}
+      <section className="mb-8 p-6 bg-white rounded-lg border border-gray-200">
+        <h3 className="text-lg mb-4 text-gray-700 font-semibold">Información Personal</h3>
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm mb-1 text-gray-600">Nombre completo</label>
-            <input
-              type="text"
-              value={data.personalInfo.name}
-              onChange={(e) => updatePersonalInfo("name", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ej: Juan Pérez"
-            />
-          </div>
-          <div>
-            <label className="block text-sm mb-1 text-gray-600">Email</label>
-            <input
-              type="email"
-              value={data.personalInfo.email}
-              onChange={(e) => updatePersonalInfo("email", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="correo@ejemplo.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm mb-1 text-gray-600">Teléfono</label>
-            <input
-              type="tel"
-              value={data.personalInfo.phone}
-              onChange={(e) => updatePersonalInfo("phone", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="+34 123 456 789"
-            />
-          </div>
-          <div>
-            <label className="block text-sm mb-1 text-gray-600">Ubicación</label>
-            <input
-              type="text"
-              value={data.personalInfo.location}
-              onChange={(e) => updatePersonalInfo("location", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ciudad, País"
-            />
-          </div>
+          {renderFieldWithValidation(
+            "Nombre completo",
+            data.personalInfo.name,
+            "name",
+            (value) => updatePersonalInfo("name", value),
+            "Ej: Diego Rodriguez",
+            "text",
+            true,
+          )}
+
+          {renderFieldWithValidation(
+            "Email",
+            data.personalInfo.email,
+            "email",
+            (value) => updatePersonalInfo("email", value),
+            "correo@ejemplo.com",
+            "email",
+            false,
+          )}
+
+          {renderFieldWithValidation(
+            "Teléfono",
+            data.personalInfo.phone,
+            "phone",
+            (value) => updatePersonalInfo("phone", phoneInputFilter(value)),
+            "Ej: 3053973956 (solo números)",
+            "text",
+            false,
+          )}
+          <p className="text-xs text-gray-500 ml-1">Solo números (mínimo 10 dígitos). Se enviará con código de país automáticamente.</p>
+
+          {renderFieldWithValidation(
+            "Ubicación",
+            data.personalInfo.location,
+            "location",
+            (value) => updatePersonalInfo("location", value),
+            "Ej: Bogotá, Colombia",
+            "text",
+            false,
+          )}
+
           <div>
             <label className="block text-sm mb-1 text-gray-600">Resumen profesional</label>
             <textarea
               value={data.personalInfo.summary}
               onChange={(e) => updatePersonalInfo("summary", e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
-              placeholder="Breve descripción de tu perfil profesional..."
+              placeholder="Describe tu perfil y fortalezas..."
             />
           </div>
         </div>
       </section>
 
-      {/* Experiencia */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg text-gray-700">Experiencia Laboral</h3>
@@ -187,23 +289,22 @@ export function CVForm({ data, onChange }: CVFormProps) {
                 value={exp.duration}
                 onChange={(e) => updateExperience(index, "duration", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Duración (Ej: Enero 2020 - Presente)"
+                placeholder="Duracion (Ej: 2024-02 - present)"
               />
               <textarea
                 value={exp.description}
                 onChange={(e) => updateExperience(index, "description", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
-                placeholder="Descripción de responsabilidades..."
+                placeholder="Responsabilidades y logros..."
               />
             </div>
           </div>
         ))}
       </section>
 
-      {/* Educación */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg text-gray-700">Educación</h3>
+          <h3 className="text-lg text-gray-700">Educacion</h3>
           <button
             onClick={addEducation}
             className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
@@ -214,7 +315,7 @@ export function CVForm({ data, onChange }: CVFormProps) {
         {data.education.map((edu, index) => (
           <div key={index} className="mb-4 p-4 bg-white rounded-md border border-gray-200">
             <div className="flex justify-between items-start mb-3">
-              <span className="text-sm text-gray-500">Educación {index + 1}</span>
+              <span className="text-sm text-gray-500">Educacion {index + 1}</span>
               <button
                 onClick={() => removeEducation(index)}
                 className="text-red-500 hover:text-red-700 text-sm"
@@ -228,42 +329,39 @@ export function CVForm({ data, onChange }: CVFormProps) {
                 value={edu.degree}
                 onChange={(e) => updateEducation(index, "degree", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Título/Grado"
+                placeholder="Titulo/Grado"
               />
               <input
                 type="text"
                 value={edu.institution}
                 onChange={(e) => updateEducation(index, "institution", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Institución"
+                placeholder="Institucion"
               />
               <input
                 type="text"
                 value={edu.year}
                 onChange={(e) => updateEducation(index, "year", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Año (Ej: 2015 - 2019)"
+                placeholder="Anio o rango (Ej: 2022-01 - 2024-01)"
               />
             </div>
           </div>
         ))}
       </section>
 
-      {/* Habilidades */}
       <section className="mb-8">
         <h3 className="text-lg mb-4 text-gray-700">Habilidades</h3>
-        <div>
-          <label className="block text-sm mb-1 text-gray-600">
-            Ingresa las habilidades separadas por comas
-          </label>
-          <input
-            type="text"
-            value={data.skills.join(", ")}
-            onChange={(e) => updateSkills(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="JavaScript, React, Node.js, etc."
-          />
-        </div>
+        <label className="block text-sm mb-1 text-gray-600">
+          Ingresa habilidades separadas por comas
+        </label>
+        <input
+          type="text"
+          value={data.skills.join(", ")}
+          onChange={(e) => updateSkills(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Java, React, FastAPI, AWS, ..."
+        />
       </section>
     </div>
   );
