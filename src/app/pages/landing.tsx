@@ -11,12 +11,26 @@ export function LandingPage() {
           <FileText className="w-8 h-8 text-blue-600" />
           <span className="text-2xl text-gray-900">AutoCV</span>
         </div>
-        <Link
-          to="/create"
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          Crear CV Gratis
-        </Link>
+        <div className="flex items-center gap-5">
+          <Link
+            to="/jobs"
+            className="text-gray-700 hover:text-blue-600 transition"
+          >
+            Empleos
+          </Link>
+          <Link
+            to="/contact"
+            className="text-gray-700 hover:text-blue-600 transition"
+          >
+            Contactanos
+          </Link>
+          <Link
+            to="/create"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            Crear CV Gratis
+          </Link>
+        </div>
       </nav>
 
       {/* Hero Section */}
@@ -297,9 +311,9 @@ export function LandingPage() {
             <a href="#" className="hover:text-white transition">
               Privacidad
             </a>
-            <a href="#" className="hover:text-white transition">
+            <Link to="/contact" className="hover:text-white transition">
               Contacto
-            </a>
+            </Link>
           </div>
           <p className="mt-6 text-sm">© 2026 CVExpress AI. Todos los derechos reservados.</p>
         </div>
