@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://autocv.app/sitemap.xml
+Sitemap: https://autocv.me/sitemap.xml

@@ -1,6 +1,6 @@
 const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env ?? {};
 
-export const SITE_URL = (viteEnv.VITE_SITE_URL ?? "https://autocv.app").replace(/\/$/, "");
+export const SITE_URL = (viteEnv.VITE_SITE_URL ?? "https://autocv.me").replace(/\/$/, "");
 export const SITE_NAME = viteEnv.VITE_SITE_NAME ?? "AutoCV";
 export const DEFAULT_OG_IMAGE =
   viteEnv.VITE_DEFAULT_OG_IMAGE ??
