@@ -33,10 +33,10 @@ export function ContactPage() {
             <h2 className="text-2xl mb-2">Soporte</h2>
             <p className="text-slate-600 mb-4">Escribenos para dudas tecnicas o de uso.</p>
             <a
-              href="mailto:soporte@autocv.app"
+              href="mailto:soporte@autocv.me"
               className="text-blue-700 hover:text-blue-800 underline"
             >
-              soporte@autocv.app
+              soporte@autocv.me
             </a>
           </article>
 
@@ -49,10 +49,10 @@ export function ContactPage() {
               Compartamos ideas para potenciar oportunidades laborales de tus usuarios.
             </p>
             <a
-              href="mailto:hola@autocv.app"
+              href="mailto:hola@autocv.me"
               className="text-emerald-700 hover:text-emerald-800 underline"
             >
-              hola@autocv.app
+              hola@autocv.me
             </a>
           </article>
         </section>

@@ -1,4 +1,4 @@
-const SITE_URL = "https://autocv.app";
+const SITE_URL = "https://autocv.me";
 
 export const sitemapRoutes = ["/", "/create", "/jobs", "/contact"];
 
