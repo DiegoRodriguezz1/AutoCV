@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router";
 import {
+  buildHomeFaqJsonLd,
   buildWebSiteJsonLd,
   getRouteMetadata,
   resolveAbsoluteUrl,
@@ -52,6 +53,11 @@ function upsertJsonLd(scriptId: string, data: unknown): void {
   element.textContent = JSON.stringify(data);
 }
 
+function removeJsonLd(scriptId: string): void {
+  const element = document.getElementById(scriptId);
+  element?.remove();
+}
+
 export function SEOHead() {
   const location = useLocation();
 
@@ -94,6 +100,12 @@ export function SEOHead() {
         name: SITE_NAME,
       },
     });
+
+    if (location.pathname === "/") {
+      upsertJsonLd("seo-home-faq-jsonld", buildHomeFaqJsonLd());
+    } else {
+      removeJsonLd("seo-home-faq-jsonld");
+    }
   }, [location.pathname]);
 
   return null;

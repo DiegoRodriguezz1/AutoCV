@@ -94,7 +94,7 @@ export function LandingPage() {
       <section className="px-6 py-20 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl mb-4 text-gray-900">¿Por qué CVExpress AI?</h2>
+            <h2 className="text-4xl mb-4 text-gray-900">¿Por qué AutoCV?</h2>
             <p className="text-xl text-gray-600">
               La forma más rápida y efectiva de crear tu hoja de vida profesional
             </p>
@@ -173,6 +173,76 @@ export function LandingPage() {
               empleo de inmediato.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* SEO: cómo hacer hoja de vida */}
+      <section className="px-6 py-20 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl mb-4 text-gray-900">Cómo hacer una hoja de vida efectiva</h2>
+            <p className="text-xl text-gray-600">
+              Estructura recomendada para crear una hoja de vida profesional que atraiga
+              reclutadores.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            <article className="p-8 border border-gray-200 rounded-2xl bg-gray-50">
+              <h3 className="text-2xl mb-3 text-gray-900">Perfil profesional claro</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Resume en 3 o 4 lineas tu experiencia, fortalezas y valor principal para
+                el cargo al que aplicas.
+              </p>
+            </article>
+            <article className="p-8 border border-gray-200 rounded-2xl bg-gray-50">
+              <h3 className="text-2xl mb-3 text-gray-900">Logros con resultados</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Describe logros concretos con datos: porcentajes, tiempos o impacto para
+                demostrar resultados reales.
+              </p>
+            </article>
+            <article className="p-8 border border-gray-200 rounded-2xl bg-gray-50">
+              <h3 className="text-2xl mb-3 text-gray-900">Formato ATS-friendly</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Usa una plantilla de CV limpia, titulos claros y palabras clave del puesto
+                para superar filtros automatizados.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      {/* SEO: plantillas y ejemplos */}
+      <section className="px-6 py-20 max-w-7xl mx-auto">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl mb-4 text-gray-900">Plantillas de CV y ejemplos de CV</h2>
+          <p className="text-xl text-gray-600">
+            Elige plantillas modernas y adapta ejemplos de CV para crear un currículum
+            competitivo en minutos.
+          </p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          <article className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100">
+            <h3 className="text-2xl mb-3 text-gray-900">Plantillas de CV modernas</h3>
+            <p className="text-gray-600 leading-relaxed">
+              Diseños limpios para perfiles junior, senior y ejecutivos. Preparados para
+              descarga en PDF.
+            </p>
+          </article>
+          <article className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-white border border-purple-100">
+            <h3 className="text-2xl mb-3 text-gray-900">Ejemplos de CV por profesión</h3>
+            <p className="text-gray-600 leading-relaxed">
+              Inspírate con ejemplos de CV para marketing, tecnologia, ventas y areas
+              administrativas.
+            </p>
+          </article>
+          <article className="p-6 rounded-2xl bg-gradient-to-br from-green-50 to-white border border-green-100">
+            <h3 className="text-2xl mb-3 text-gray-900">Currículum listo para postular</h3>
+            <p className="text-gray-600 leading-relaxed">
+              Optimiza tu contenido con IA y genera un CV profesional para aplicar en
+              portales de empleo y LinkedIn.
+            </p>
+          </article>
         </div>
       </section>
 
@@ -298,11 +368,14 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <FileText className="w-6 h-6 text-blue-400" />
-            <span className="text-xl text-white">CVExpress AI</span>
+            <span className="text-xl text-white">AutoCV</span>
           </div>
           <p className="mb-4">
             La forma más rápida de crear tu currículum profesional con inteligencia
             artificial
+          </p>
+          <p className="mb-4">
+            Proyecto univeritario creado por Diego Rodriguez para ETITC
           </p>
           <div className="flex justify-center gap-6 text-sm">
             <a href="#" className="hover:text-white transition">
@@ -315,7 +388,7 @@ export function LandingPage() {
               Contacto
             </Link>
           </div>
-          <p className="mt-6 text-sm">© 2026 CVExpress AI. Todos los derechos reservados.</p>
+          <p className="mt-6 text-sm">© 2026 AutoCV. Todos los derechos reservados.</p>
         </div>
       </footer>
     </div>

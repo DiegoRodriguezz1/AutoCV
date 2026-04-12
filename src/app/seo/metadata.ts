@@ -28,15 +28,28 @@ const sharedKeywords = [
   "plantilla CV",
   "hoja de vida",
   "generador de CV",
+  "crear cv gratis",
+  "generador de curriculum",
+  "como hacer una hoja de vida",
+  "plantillas de cv",
+  "ejemplos de cv",
+  "cv profesional",
 ];
 
 const routesMetadata: Record<string, RouteMetadata> = {
   "/": {
-    title: "AutoCV | Crea tu CV profesional en minutos",
+    title: "AutoCV | Crear CV Gratis Online y Hoja de Vida Profesional",
     description:
-      "Crea tu curriculum vitae profesional con ayuda de IA, optimiza tu perfil y descarga tu CV en PDF en pocos minutos.",
+      "Crea tu CV profesional gratis con IA. Aprende como hacer una hoja de vida, usa plantillas de CV modernas y revisa ejemplos de CV para destacar.",
     path: "/",
-    keywords: [...sharedKeywords, "cv con ia", "descargar cv pdf", "crear hoja de vida"],
+    keywords: [
+      ...sharedKeywords,
+      "cv con ia",
+      "descargar cv pdf",
+      "crear hoja de vida profesional",
+      "curriculum para trabajar",
+      "cv online gratis",
+    ],
     openGraph: {
       type: "website",
       image: DEFAULT_OG_IMAGE,
@@ -131,6 +144,42 @@ export function buildWebSiteJsonLd() {
         "@type": "WebPage",
         name: "Contactanos",
         url: resolveAbsoluteUrl("/contact"),
+      },
+    ],
+  };
+}
+
+export function buildHomeFaqJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "Como hacer una hoja de vida paso a paso?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text:
+            "Incluye datos de contacto, perfil profesional, experiencia relevante, educacion y habilidades. En AutoCV puedes completarlo en minutos y optimizar el texto con IA.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Que plantilla de CV debo usar para conseguir empleo?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text:
+            "Usa una plantilla de CV limpia, facil de leer y compatible con ATS. Prioriza estructura clara, logros medibles y una sola pagina cuando sea posible.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Donde puedo ver ejemplos de CV profesionales?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text:
+            "En AutoCV puedes revisar ejemplos de CV por perfil y adaptar cada seccion para tu area. Esto te ayuda a escribir un curriculo competitivo y listo para postular.",
+        },
       },
     ],
   };

@@ -5,7 +5,7 @@ import { isValidEmail, getPhoneErrorMessage } from "../dto/cv-api";
 /**
  * Filtra solo dígitos de un string de teléfono
  */
-export function phoneInputFilter(value: string): string {
+function phoneInputFilter(value: string): string {
   return value.replace(/\D/g, "");
 }
 
@@ -56,6 +56,11 @@ function areErrorMapsEqual(
 
 export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  const markFieldAsTouched = (fieldName: string) => {
+    setTouchedFields((prev) => (prev[fieldName] ? prev : { ...prev, [fieldName]: true }));
+  };
 
   // Validar datos en tiempo real
   // Solo requerimos el nombre - el resto es opcional para ayudar al usuario
@@ -73,15 +78,19 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
       newErrors.email = "Email debe tener formato válido";
     }
 
-    setErrors((prev) => (areErrorMapsEqual(prev, newErrors) ? prev : newErrors));
+    const visibleErrors = Object.fromEntries(
+      Object.entries(newErrors).filter(([field]) => touchedFields[field]),
+    ) as ValidationErrors;
+
+    setErrors((prev) => (areErrorMapsEqual(prev, visibleErrors) ? prev : visibleErrors));
 
     // Notificar padre si validación cambió
     const isValid = Object.keys(newErrors).length === 0;
     const errorsToNotify = Object.fromEntries(
-      Object.entries(newErrors).filter(([, v]) => v !== undefined)
+      Object.entries(visibleErrors).filter(([, v]) => v !== undefined)
     ) as Record<string, string>;
     onValidationChange?.(isValid, errorsToNotify);
-  }, [data.personalInfo, onValidationChange]);
+  }, [data.personalInfo, onValidationChange, touchedFields]);
 
   const renderFieldWithValidation = (
     label: string,
@@ -105,7 +114,11 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
           <input
             type={type}
             value={value}
-            onChange={(e) => onChangeValue(e.target.value)}
+            onChange={(e) => {
+              markFieldAsTouched(fieldName);
+              onChangeValue(e.target.value);
+            }}
+            onBlur={() => markFieldAsTouched(fieldName)}
             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition ${
               hasError
                 ? "border-red-300 focus:ring-red-500 bg-red-50"
