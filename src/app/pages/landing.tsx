@@ -375,7 +375,7 @@ export function LandingPage() {
             artificial
           </p>
           <p className="mb-4">
-            Proyecto univeritario creado por Diego Rodriguez para ETITC
+            Proyecto universitario creado por Diego Rodriguez para ETITC
           </p>
           <div className="flex justify-center gap-6 text-sm">
             <a href="#" className="hover:text-white transition">
