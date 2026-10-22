@@ -1,14 +1,13 @@
 import { CvRequestDTO } from "../dto/cv-api";
+import { API_BASE_URL } from "./experiment-api";
 
 const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env ?? {};
 
-const DEFAULT_CV_API_URL =
-  viteEnv.VITE_CV_RENDER_API_URL ?? "http://127.0.0.1:8000/api/v1/cv/render";
-const DEFAULT_OCR_EXTRACT_CV_API_URL =
-  viteEnv.VITE_OCR_EXTRACT_CV_API_URL ?? "http://127.0.0.1:8000/api/v1/ocr/extract-cv";
+// Sin variable propia, cada endpoint cuelga de la misma base que el resto de la API.
+const DEFAULT_CV_API_URL = viteEnv.VITE_CV_RENDER_API_URL || `${API_BASE_URL}/cv/render`;
+const DEFAULT_OCR_EXTRACT_CV_API_URL = viteEnv.VITE_OCR_EXTRACT_CV_API_URL || `${API_BASE_URL}/ocr/extract-cv`;
 const DEFAULT_OCR_EXTRACT_CV_PREVIEW_API_URL =
-  viteEnv.VITE_OCR_EXTRACT_CV_PREVIEW_API_URL ??
-  "http://127.0.0.1:8000/api/v1/ocr/extract-cv-preview";
+  viteEnv.VITE_OCR_EXTRACT_CV_PREVIEW_API_URL || `${API_BASE_URL}/ocr/extract-cv-preview`;
 
 interface AnyObject {
   [key: string]: unknown;
