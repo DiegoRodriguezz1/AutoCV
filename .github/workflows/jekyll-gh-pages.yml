@@ -34,6 +34,8 @@ jobs:
       - name: Build project
         run: npm run build
         env:
+          # Base de la API del experimento; si no está definida, el front usa https://bautocv.onrender.com/api/v1
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL }}
           VITE_APP_ENV: ${{ secrets.VITE_APP_ENV }}
           VITE_CV_RENDER_API_URL: ${{ secrets.VITE_CV_RENDER_API_URL }}
           VITE_DEFAULT_LOCALE: ${{ secrets.VITE_DEFAULT_LOCALE }}

@@ -21,9 +21,24 @@ import type {
   StartSessionRequest,
 } from "../dto/experiment";
 
-export const API_BASE_URL =
-  ((import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_URL ??
-    "http://127.0.0.1:8000/api/v1").replace(/\/$/, "");
+const PRODUCTION_API_BASE_URL = "https://bautocv.onrender.com/api/v1";
+const LOCAL_API_BASE_URL = "http://127.0.0.1:8000/api/v1";
+
+/**
+ * Base de la API: VITE_API_BASE_URL; si falta, se deduce de VITE_CV_RENDER_API_URL (que ya
+ * existía en el despliegue); y si tampoco está, producción usa Render y desarrollo, localhost.
+ */
+function resolveApiBaseUrl(): string {
+  const env = import.meta.env as Record<string, string | boolean | undefined>;
+  const explicit = typeof env.VITE_API_BASE_URL === "string" ? env.VITE_API_BASE_URL.trim() : "";
+  if (explicit) return explicit.replace(/\/$/, "");
+  const renderUrl = typeof env.VITE_CV_RENDER_API_URL === "string" ? env.VITE_CV_RENDER_API_URL.trim() : "";
+  const derived = renderUrl.replace(/\/cv\/render\/?$/, "");
+  if (derived && derived !== renderUrl) return derived.replace(/\/$/, "");
+  return env.PROD ? PRODUCTION_API_BASE_URL : LOCAL_API_BASE_URL;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 const RESEARCH_KEY_STORAGE = "autocv_research_key";
 
