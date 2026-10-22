@@ -1,14 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { CVForm, CVData } from "../components/cv-form.tsx";
-import { CVPreview } from "../components/cv-preview.tsx";
-import { FileText, ArrowLeft, Upload, ShieldCheck } from "lucide-react";
-import { Link, useNavigate } from "react-router";
-import { mapCVDataToCvRequest } from "../dto/cv-api";
-import {
-  extractCvFromPdfBase64,
-  extractCvPreviewFromPdfBase64,
-  renderCv,
-} from "../services/cv-api";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, FileText, Loader2, PlayCircle, RotateCcw, ShieldCheck, Upload } from "lucide-react";
+import { Link } from "react-router";
+
+import { prefsSnapshot, useA11y } from "../a11y/preferences";
+import { CvWizard, DRAFT_KEY, WizardDraft, WizardSession } from "../components/wizard/cv-wizard";
+import { emptyWizardData, fromCVData } from "../components/wizard/model";
 import {
   Dialog,
   DialogContent,
@@ -17,26 +13,34 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
-import {
-  recordExperimentEvent,
-  startExperimentSession,
-  submitExperimentSurvey,
-} from "../services/experiment-api";
+import type { CVData } from "../dto/cv-data";
+import type { ExperimentGroup } from "../dto/experiment";
+import { extractCvFromPdfBase64, extractCvPreviewFromPdfBase64 } from "../services/cv-api";
+import { enqueueEvent } from "../services/event-queue";
+import { endSession, getSessionState, listSkills, startExperimentSession } from "../services/experiment-api";
 
-const AUTO_RENDER_IDLE_MS = 5000;
+const SESSION_KEY = "autocv_session";
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
 const MIN_PDF_SIZE_BYTES = 50 * 1024;
 
-type CVTheme = "classic" | "modern" | "casual";
+type GroupChoice = "random" | ExperimentGroup;
 
-const AVAILABLE_THEMES: { value: CVTheme; label: string }[] = [
-  { value: "classic", label: "Clásico" },
-  { value: "modern", label: "Moderno" },
-  { value: "casual", label: "Casual" },
-];
+function readStored<T>(read: () => string | null): T | null {
+  try {
+    const value = read();
+    return value ? (JSON.parse(value) as T) : null;
+  } catch {
+    return null;
+  }
+}
 
-function hasMinimumData(data: CVData): boolean {
-  return Boolean(data.personalInfo.name.trim());
+function clearStored() {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Nada que limpiar.
+  }
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -48,13 +52,11 @@ async function fileToBase64(file: File): Promise<string> {
         reject(new Error("No se pudo leer el archivo PDF."));
         return;
       }
-
       const base64 = value.includes(",") ? value.split(",")[1] : value;
       if (!base64) {
         reject(new Error("No se pudo convertir el PDF a base64."));
         return;
       }
-
       resolve(base64);
     };
     reader.onerror = () => reject(new Error("Error leyendo el archivo PDF."));
@@ -70,7 +72,6 @@ function mapExtractedDataToCvData(extracted: Record<string, unknown>): CVData {
   const personalInfoRaw = (extracted.personalInfo as Record<string, unknown> | undefined) ??
     (extracted.personal_info as Record<string, unknown> | undefined) ??
     {};
-
   const experienceRaw = (extracted.experience as Record<string, unknown>[] | undefined) ?? [];
   const educationRaw = (extracted.education as Record<string, unknown>[] | undefined) ?? [];
   const skillsRaw = (extracted.skills as unknown[] | undefined) ?? [];
@@ -105,469 +106,365 @@ function mapExtractedDataToCvData(extracted: Record<string, unknown>): CVData {
 }
 
 export function CVCreatorPage() {
-  const navigate = useNavigate();
-  const requestCounterRef = useRef(0);
+  const { prefs } = useA11y();
+  const [consent, setConsent] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
+  const [groupChoice, setGroupChoice] = useState<GroupChoice>("random");
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [session, setSession] = useState<WizardSession | null>(null);
+  const [draft, setDraft] = useState<WizardDraft | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [resumable, setResumable] = useState<{ session: WizardSession; draft: WizardDraft } | null>(null);
+  const [prefill, setPrefill] = useState<CVData | null>(null);
+  const consentRef = useRef<HTMLInputElement>(null);
+
+  // OCR
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [selectedTheme, setSelectedTheme] = useState<CVTheme>("classic");
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [hasAcceptedDataPolicy, setHasAcceptedDataPolicy] = useState(false);
-  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
-  const [isParsingPdf, setIsParsingPdf] = useState(false);
-  const [useGeminiForOcr, setUseGeminiForOcr] = useState(true);
-  const [pdfUploadError, setPdfUploadError] = useState<string | null>(null);
-  const [pdfUploadSuccess, setPdfUploadSuccess] = useState<string | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
+  const [useGemini, setUseGemini] = useState(true);
+  const [parsing, setParsing] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
 
-  const [cvData, setCvData] = useState<CVData>({
-    personalInfo: {
-      name: "",
-      email: "",
-      phone: "",
-      location: "",
-      summary: "",
-    },
-    experience: [],
-    education: [],
-    skills: [],
-  });
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedPdfBase64, setGeneratedPdfBase64] = useState<string | null>(null);
-  const [generatedYaml, setGeneratedYaml] = useState<string | null>(null);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [isFormValid, setIsFormValid] = useState(false);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [experimentSessionId, setExperimentSessionId] = useState<string | null>(null);
-
+  // Retomar una sesión abierta tras recargar la página.
   useEffect(() => {
-    void startExperimentSession().then((session) => {
-      setExperimentSessionId(session.id);
-      void recordExperimentEvent(session.id, "section_enter", "personal");
-    }).catch(() => undefined);
+    const stored = readStored<WizardSession>(() => sessionStorage.getItem(SESSION_KEY));
+    const storedDraft = readStored<WizardDraft>(() => localStorage.getItem(DRAFT_KEY));
+    if (!stored || !storedDraft || storedDraft.sessionId !== stored.id) return;
+    void getSessionState(stored.id)
+      .then(async (state) => {
+        if (state.ended_at) {
+          clearStored();
+          return;
+        }
+        // Las habilidades guardadas en el servidor mandan sobre el borrador local.
+        const serverSkills = await listSkills(stored.id).catch(() => null);
+        const skills = serverSkills
+          ? serverSkills.map((skill) => ({
+              key: String(skill.id),
+              id: skill.id,
+              label: skill.input_label,
+              escoUri: skill.esco_uri,
+              preferredLabel: skill.preferred_label,
+              source: skill.source,
+            }))
+          : storedDraft.data.skills;
+        setResumable({ session: stored, draft: { ...storedDraft, data: { ...storedDraft.data, skills } } });
+      })
+      // Sin conexión no se borra nada: se ofrece retomar con el borrador local.
+      .catch(() => setResumable({ session: stored, draft: storedDraft }));
   }, []);
 
-  useEffect(() => {
-    if (!experimentSessionId) return;
-    void recordExperimentEvent(experimentSessionId, "field_edit", "cv_data_changed");
-  }, [cvData, experimentSessionId]);
-
-  const handleValidationChange = useCallback(
-    (isValid: boolean, errors: Record<string, string>) => {
-      setIsFormValid((prev) => (prev === isValid ? prev : isValid));
-
-      setFormErrors((prev) => {
-        const prevKeys = Object.keys(prev);
-        const nextKeys = Object.keys(errors);
-        const hasSameLength = prevKeys.length === nextKeys.length;
-        const hasSameValues =
-          hasSameLength && prevKeys.every((key) => prev[key] === errors[key]);
-
-        return hasSameValues ? prev : errors;
-      });
-    },
-    [],
-  );
-
-  const handleGenerateCV = async (source: "manual" | "auto" = "manual") => {
-    if (!hasMinimumData(cvData)) {
-      setGeneratedPdfBase64(null);
-      setGeneratedYaml(null);
+  const start = async () => {
+    if (!consent) {
+      setConsentError("Para participar debes aceptar el consentimiento informado.");
+      consentRef.current?.focus();
       return;
     }
-
-    const requestId = ++requestCounterRef.current;
-    setApiError(null);
-    setIsGenerating(true);
-
+    setStarting(true);
+    setStartError(null);
     try {
-      const payload = mapCVDataToCvRequest(cvData, selectedTheme);
-      if (experimentSessionId) {
-        void recordExperimentEvent(experimentSessionId, "cv_export", source);
+      if (resumable) void endSession(resumable.session.id).catch(() => undefined);
+      const created = await startExperimentSession({
+        consent: true,
+        group: groupChoice === "random" ? undefined : groupChoice,
+        user_agent: navigator.userAgent,
+        a11y_prefs: prefsSnapshot(prefs),
+      });
+      const next: WizardSession = { id: created.id, group: created.group, startedAt: created.started_at };
+      const data = prefill ? fromCVData(prefill, emptyWizardData()) : emptyWizardData();
+      if (prefill) enqueueEvent(created.id, "field_edit", { field: "ocr_import" });
+      try {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
+      } catch {
+        // Sin almacenamiento: no se podrá retomar tras recargar.
       }
-      const result = await renderCv(payload);
-
-      // Ignore stale responses if a newer request was fired.
-      if (requestId !== requestCounterRef.current) {
-        return;
-      }
-
-      if (!result.accepted) {
-        throw new Error(result.message || "La API no acepto la solicitud");
-      }
-
-      if (!result.pdf_base64) {
-        throw new Error("La API respondio sin pdf_base64");
-      }
-
-      setGeneratedPdfBase64(result.pdf_base64);
-      setGeneratedYaml(result.generated_yaml ?? null);
+      setResumable(null);
+      setSession(next);
+      setDraft({ sessionId: created.id, data, stepIndex: 0, maxStep: 0, phase: "review" });
+      setWizardOpen(true);
     } catch (error) {
-      if (requestId !== requestCounterRef.current) {
-        return;
-      }
-
-      const message = error instanceof Error ? error.message : "No se pudo generar el CV";
-      setApiError(source === "auto" ? `Autogeneracion: ${message}` : message);
-      setGeneratedPdfBase64(null);
-      setGeneratedYaml(null);
+      setStartError(error instanceof Error ? error.message : "No se pudo iniciar la sesión.");
     } finally {
-      if (requestId === requestCounterRef.current) {
-        setIsGenerating(false);
-      }
+      setStarting(false);
     }
   };
 
-  useEffect(() => {
-    if (!hasMinimumData(cvData) || !isFormValid) {
-      setApiError(null);
-      setGeneratedPdfBase64(null);
-      setGeneratedYaml(null);
+  const resume = () => {
+    if (!resumable) return;
+    setSession(resumable.session);
+    setDraft(resumable.draft);
+    setResumable(null);
+    setWizardOpen(true);
+  };
+
+  const restart = () => {
+    clearStored();
+    setResumable(null);
+    setWizardOpen(false);
+    setSession(null);
+    setDraft(null);
+    setPrefill(null);
+    setConsent(false);
+  };
+
+  const closeWizard = () => {
+    setWizardOpen(false);
+    const stored = readStored<WizardDraft>(() => localStorage.getItem(DRAFT_KEY));
+    if (session && stored?.phase === "done") {
+      restart();
       return;
     }
-
-    const timer = window.setTimeout(() => {
-      void handleGenerateCV("auto");
-    }, AUTO_RENDER_IDLE_MS);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [cvData, isFormValid, selectedTheme]);
-
-  const handleApplyCV = () => {
-    if (experimentSessionId) void recordExperimentEvent(experimentSessionId, "session_end", "apply_cv");
-    navigate("/jobs");
+    if (session && stored) setResumable({ session, draft: stored });
+    setSession(null);
+    setDraft(null);
   };
 
-  const handleOpenUploadModal = () => {
-    setPdfUploadError(null);
-    setPdfUploadSuccess(null);
-    setSelectedPdfFile(null);
-    setUseGeminiForOcr(true);
-    setHasAcceptedDataPolicy(false);
-    setIsUploadModalOpen(true);
-  };
-
-  const handleSelectPdfClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handlePdfFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const onPdfChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
-    setPdfUploadError(null);
-    setPdfUploadSuccess(null);
-
-    if (!file) {
-      setSelectedPdfFile(null);
-      return;
-    }
-
-    if (file.type !== "application/pdf") {
-      setPdfUploadError("Solo se permiten archivos PDF.");
-      setSelectedPdfFile(null);
+    setUploadError(null);
+    if (!file) return setSelectedPdf(null);
+    const invalid =
+      file.type !== "application/pdf"
+        ? "Solo se permiten archivos PDF."
+        : file.size > MAX_PDF_SIZE_BYTES
+          ? "El PDF pesa más de 10 MB. Usa un archivo más liviano."
+          : file.size < MIN_PDF_SIZE_BYTES
+            ? "El PDF es muy pequeño. Debe pesar al menos 50 KB."
+            : null;
+    if (invalid) {
+      setUploadError(invalid);
+      setSelectedPdf(null);
       event.target.value = "";
       return;
     }
-
-    if (file.size > MAX_PDF_SIZE_BYTES) {
-      setPdfUploadError("El PDF excede 10MB. Usa un archivo más liviano.");
-      setSelectedPdfFile(null);
-      event.target.value = "";
-      return;
-    }
-
-    if (file.size < MIN_PDF_SIZE_BYTES) {
-      setPdfUploadError("El PDF es muy pequeño. Debe ser de al menos 50KB.");
-      setSelectedPdfFile(null);
-      event.target.value = "";
-      return;
-    }
-
-    setSelectedPdfFile(file);
+    setSelectedPdf(file);
   };
 
-  const handleProcessUploadedPdf = async () => {
-    if (!hasAcceptedDataPolicy) {
-      setPdfUploadError("Debes aceptar el tratamiento de datos para continuar.");
+  const processPdf = async () => {
+    if (!selectedPdf) {
+      setUploadError("Selecciona un archivo PDF para procesar.");
       return;
     }
-
-    if (!selectedPdfFile) {
-      setPdfUploadError("Selecciona un archivo PDF para procesar.");
-      return;
-    }
-
-    setPdfUploadError(null);
-    setPdfUploadSuccess(null);
-    setIsParsingPdf(true);
-
+    setParsing(true);
+    setUploadError(null);
     try {
-      const pdfBase64 = await fileToBase64(selectedPdfFile);
-      const previewResult = await extractCvPreviewFromPdfBase64({
-        pdf_base64: pdfBase64,
-        language: "es",
-        use_gemini: false,
-      });
-
-      if (!previewResult.extracted_data && !useGeminiForOcr) {
-        throw new Error(
-          "No se pudo extraer informacion del PDF en modo rapido. Intenta activar OCR con IA.",
-        );
+      const pdfBase64 = await fileToBase64(selectedPdf);
+      const preview = await extractCvPreviewFromPdfBase64({ pdf_base64: pdfBase64, language: "es", use_gemini: false });
+      const result = useGemini
+        ? await extractCvFromPdfBase64({ pdf_base64: pdfBase64, language: "es", use_gemini: true })
+        : preview;
+      if (!result.accepted || !result.extracted_data) {
+        throw new Error(result.message || "No se pudo extraer información del PDF.");
       }
-
-      const result = useGeminiForOcr
-        ? await extractCvFromPdfBase64({
-            pdf_base64: pdfBase64,
-            language: "es",
-            use_gemini: true,
-          })
-        : previewResult;
-
-      if (!result.accepted) {
-        throw new Error(result.message || "No se pudo procesar el PDF.");
-      }
-
-      if (result.extracted_data) {
-        const mapped = mapExtractedDataToCvData(result.extracted_data);
-        setCvData((prev) => ({
-          personalInfo: {
-            name: mapped.personalInfo.name || prev.personalInfo.name,
-            email: mapped.personalInfo.email || prev.personalInfo.email,
-            phone: mapped.personalInfo.phone || prev.personalInfo.phone,
-            location: mapped.personalInfo.location || prev.personalInfo.location,
-            summary: mapped.personalInfo.summary || prev.personalInfo.summary,
-          },
-          experience: mapped.experience.length > 0 ? mapped.experience : prev.experience,
-          education: mapped.education.length > 0 ? mapped.education : prev.education,
-          skills: mapped.skills.length > 0 ? mapped.skills : prev.skills,
-        }));
-      }
-
-      const confidenceLabel =
-        typeof result.confidence_score === "number"
-          ? ` Confianza OCR: ${result.confidence_score.toFixed(1)}%.`
-          : "";
-
-      setPdfUploadSuccess(
-        `CV cargado y procesado. Revisa los datos extraidos en el formulario.${confidenceLabel}`,
-      );
-      setIsUploadModalOpen(false);
+      setPrefill(mapExtractedDataToCvData(result.extracted_data));
+      setUploadMessage("Datos del PDF listos. Se cargarán en el formulario al comenzar; revísalos paso a paso.");
+      setUploadOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Error procesando el PDF";
-      setPdfUploadError(message);
+      setUploadError(error instanceof Error ? error.message : "Error procesando el PDF.");
     } finally {
-      setIsParsingPdf(false);
+      setParsing(false);
     }
   };
 
   return (
-    <div className="size-full flex flex-col">
-      {/* Header */}
-      <header className="px-6 py-4 border-b border-gray-200 bg-white flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Volver</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <FileText className="w-6 h-6 text-blue-600" />
-            <span className="text-xl text-gray-900">AutoCV</span>
-          </div>
-        </div>
-
-        {/* Selector de Tema */}
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">Tema:</label>
-          <select
-            value={selectedTheme}
-            onChange={(e) => setSelectedTheme(e.target.value as CVTheme)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          >
-            {AVAILABLE_THEMES.map((theme) => (
-              <option key={theme.value} value={theme.value}>
-                {theme.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleOpenUploadModal}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm flex items-center gap-2"
-          >
-            <Upload className="w-4 h-4" />
-            Subir CV (PDF)
-          </button>
-          <button
-            onClick={handleApplyCV}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            Aplicar CV
-          </button>
-          <button
-            onClick={() => void handleGenerateCV("manual")}
-            disabled={isGenerating}
-            className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isGenerating ? "Generando..." : "Generar ahora"}
-          </button>
-        </div>
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <header className="flex flex-wrap items-center gap-4 border-b border-gray-300 bg-white px-6 py-4">
+        <Link to="/" className="inline-flex min-h-11 items-center gap-2 font-semibold text-gray-800 hover:text-gray-900">
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+          Volver al inicio
+        </Link>
+        <span className="inline-flex items-center gap-2 text-xl font-bold">
+          <FileText className="h-6 w-6 text-blue-700" aria-hidden="true" />
+          AutoCV
+        </span>
       </header>
 
-      {apiError && (
-        <div className="px-6 py-3 bg-red-50 border-b border-red-200 text-red-700 text-sm">
-          {apiError}
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold">Crea tu hoja de vida</h1>
+          <p className="text-lg text-gray-800">
+            Esta herramienta hace parte de un estudio de la Escuela Tecnológica Instituto Técnico Central (ETITC) sobre
+            cómo crear hojas de vida más rápido y mejor.
+          </p>
         </div>
-      )}
 
-      {pdfUploadSuccess && (
-        <div className="px-6 py-3 bg-blue-50 border-b border-blue-200 text-blue-700 text-sm">
-          {pdfUploadSuccess}
-        </div>
-      )}
+        {resumable && (
+          <section aria-labelledby="resume-title" className="space-y-3 rounded-lg border-2 border-blue-700 bg-blue-50 p-5">
+            <h2 id="resume-title" className="text-xl font-bold">Tienes un CV sin terminar</h2>
+            <p className="text-base text-gray-800">Puedes seguir donde lo dejaste. Tus datos están guardados.</p>
+            <button
+              type="button"
+              onClick={resume}
+              className="inline-flex min-h-12 items-center gap-2 rounded-md bg-blue-700 px-5 text-lg font-bold text-white hover:bg-blue-800"
+            >
+              <PlayCircle className="h-5 w-5" aria-hidden="true" />
+              Continuar donde quedé
+            </button>
+          </section>
+        )}
 
-      {!isFormValid && Object.keys(formErrors).length > 0 && (
-        <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200 text-yellow-700 text-sm">
-          <strong>Errores de validación:</strong>
-          <ul className="mt-2 ml-4 text-xs space-y-1">
-            {Object.entries(formErrors).map(([key, error]) => (
-              <li key={key}>• {error}</li>
-            ))}
+        <section aria-labelledby="study-title" className="space-y-3 rounded-lg border border-gray-400 bg-white p-5">
+          <h2 id="study-title" className="text-xl font-bold">Antes de empezar</h2>
+          <ul className="list-disc space-y-1 pl-5 text-base text-gray-800">
+            <li>Son 5 pasos: datos, formación, experiencia, habilidades y exportar.</li>
+            <li>Tarda entre 20 y 30 minutos. No hay límite de tiempo y puedes pausar cuando quieras.</li>
+            <li>
+              Registramos cuánto tardas en cada paso, cuántas veces corriges un dato, tus habilidades y tu opinión al final.
+              No vendemos ni compartimos tus datos.
+            </li>
+            <li>Puedes ajustar el tamaño del texto, el contraste o activar la lectura en voz alta con el botón «Accesibilidad».</li>
           </ul>
-        </div>
+        </section>
+
+        <section aria-labelledby="consent-title" className="space-y-4 rounded-lg border border-gray-400 bg-white p-5">
+          <h2 id="consent-title" className="flex items-center gap-2 text-xl font-bold">
+            <ShieldCheck className="h-6 w-6 text-blue-700" aria-hidden="true" />
+            Consentimiento informado
+          </h2>
+          <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-gray-300 bg-gray-50 p-4 text-base text-gray-800" tabIndex={0} aria-label="Texto del consentimiento">
+            <p>
+              Al participar autorizas el tratamiento de tus datos personales con fines académicos y de investigación,
+              conforme a la Ley Estatutaria 1581 de 2012 y el Decreto 1377 de 2013 (Colombia).
+            </p>
+            <p>
+              Los datos se usan para generar tu CV y para analizar, de forma agregada y anónima, el tiempo de creación, la
+              calidad del CV y tu satisfacción. Puedes pedir la actualización, corrección o eliminación de tus datos en
+              cualquier momento.
+            </p>
+            <p>Tu participación es voluntaria y puedes retirarte sin ninguna consecuencia.</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <input
+              ref={consentRef}
+              id="consent"
+              type="checkbox"
+              checked={consent}
+              onChange={(event) => {
+                setConsent(event.target.checked);
+                if (event.target.checked) setConsentError(null);
+              }}
+              aria-describedby={consentError ? "consent-error" : undefined}
+              aria-invalid={consentError ? true : undefined}
+              aria-required="true"
+              className="mt-1 h-6 w-6 shrink-0 accent-blue-700"
+            />
+            <label htmlFor="consent" className="text-base font-semibold">
+              Leí el consentimiento, soy mayor de edad y acepto participar. (obligatorio)
+            </label>
+          </div>
+          {consentError && (
+            <p id="consent-error" role="alert" className="font-semibold text-red-800">
+              {consentError}
+            </p>
+          )}
+
+          {import.meta.env.DEV && (
+            <div className="space-y-1">
+              <label htmlFor="group-choice" className="block font-semibold">
+                Asignación de grupo (solo en desarrollo)
+              </label>
+              <select
+                id="group-choice"
+                value={groupChoice}
+                onChange={(event) => setGroupChoice(event.target.value as GroupChoice)}
+                className="min-h-11 rounded-md border border-gray-500 bg-white px-3"
+              >
+                <option value="random">Aleatoria</option>
+                <option value="A">Forzar grupo A (control)</option>
+                <option value="B">Forzar grupo B (AutoCV)</option>
+              </select>
+            </div>
+          )}
+
+          {uploadMessage && (
+            <p role="status" className="rounded-md border border-emerald-700 bg-emerald-50 p-3 text-gray-900">
+              {uploadMessage}
+            </p>
+          )}
+          {startError && (
+            <p role="alert" className="rounded-md border border-red-700 bg-red-50 p-3 font-semibold text-red-800">
+              {startError}
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => void start()}
+              disabled={starting}
+              className="inline-flex min-h-12 items-center gap-2 rounded-md bg-blue-700 px-6 text-lg font-bold text-white hover:bg-blue-800 disabled:opacity-70"
+            >
+              {starting ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : resumable ? <RotateCcw className="h-5 w-5" aria-hidden="true" /> : null}
+              {resumable ? "Empezar un CV nuevo" : "Comenzar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setUploadError(null);
+                setSelectedPdf(null);
+                setUploadOpen(true);
+              }}
+              className="inline-flex min-h-12 items-center gap-2 rounded-md border border-gray-500 bg-white px-5 font-semibold hover:bg-gray-100"
+            >
+              <Upload className="h-5 w-5" aria-hidden="true" />
+              Rellenar desde mi CV en PDF
+            </button>
+          </div>
+        </section>
+      </main>
+
+      {session && draft && (
+        <CvWizard key={session.id} open={wizardOpen} session={session} initialDraft={draft} onClose={closeWizard} onRestart={restart} />
       )}
 
-      {!apiError && generatedYaml && (
-        <div className="px-6 py-2 bg-green-50 border-b border-green-200 text-green-700 text-xs">
-          YAML sincronizado y PDF actualizado automaticamente
-        </div>
-      )}
-
-      {/* Contenido principal */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Formulario a la izquierda */}
-        <div className="w-1/2 border-r border-gray-300">
-          <CVForm
-            data={cvData}
-            onChange={setCvData}
-            onValidationChange={handleValidationChange}
-          />
-        </div>
-
-        {/* Previsualizador a la derecha */}
-        <div className="w-1/2">
-          <CVPreview
-            data={cvData}
-            generatedPdfBase64={generatedPdfBase64}
-            onClearGeneratedPdf={() => setGeneratedPdfBase64(null)}
-          />
-        </div>
-      </div>
-
-      <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-blue-600" />
-              Autorizacion de Tratamiento de Datos - Carga de CV
-            </DialogTitle>
+            <DialogTitle>Rellenar desde un CV en PDF</DialogTitle>
             <DialogDescription>
-              Antes de cargar tu hoja de vida, debes leer y aceptar este consentimiento.
+              Extraemos el texto de tu PDF para llenar el formulario. Revisa los datos antes de exportar. El PDF se usa solo
+              para esto, bajo el mismo consentimiento.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="max-h-[360px] overflow-y-auto rounded-md border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 space-y-3">
-            <p>
-              Al subir tu PDF autorizas el tratamiento de tus datos personales exclusivamente para
-              extraer informacion curricular y completar tu perfil en esta plataforma.
-            </p>
-            <p>
-              Referencias normativas aplicables en Colombia: Ley 1581 de 2012, Decreto 1377 de
-              2013 y principios de habeas data (finalidad, libertad, seguridad y confidencialidad).
-            </p>
-            <p>
-              Tus datos se usan solo para procesamiento por el backend y generacion de tu CV. No
-              se comparten con terceros para fines comerciales. Solo podran ser revelados si existe
-              obligacion legal o requerimiento de autoridad competente.
-            </p>
-            <p>
-              Puedes solicitar actualizacion, correccion o eliminacion de tus datos conforme a la
-              normativa vigente. Este texto es informativo y no reemplaza asesoria legal.
-            </p>
-            <p>
-              Gestion de calidad: el flujo se diseña con trazabilidad y mejora continua alineada a
-              principios de ISO 9001 para control del proceso documental.
-            </p>
-          </div>
-
           <div className="space-y-3">
-            <label className="flex items-start gap-2 text-sm text-gray-800">
-              <input
-                type="checkbox"
-                checked={hasAcceptedDataPolicy}
-                onChange={(e) => setHasAcceptedDataPolicy(e.target.checked)}
-                className="mt-1"
-              />
-              <span>
-                Acepto el tratamiento de mis datos personales para la transformacion de mi CV en
-                PDF y confirmo que soy titular de la informacion cargada.
-              </span>
-            </label>
-
-            <div className="flex items-center gap-3">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={handlePdfFileChange}
-              />
+            <div className="flex flex-wrap items-center gap-3">
+              <input ref={fileInputRef} id="pdf-file" type="file" accept="application/pdf" className="sr-only" onChange={onPdfChange} />
               <button
                 type="button"
-                onClick={handleSelectPdfClick}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                onClick={() => fileInputRef.current?.click()}
+                className="min-h-11 rounded-md border border-gray-500 px-4 font-semibold hover:bg-gray-100"
               >
                 Seleccionar PDF
               </button>
-              <span className="text-xs text-gray-600 truncate">
-                {selectedPdfFile ? selectedPdfFile.name : "Ningun archivo seleccionado"}
+              <span className="text-sm text-gray-800" aria-live="polite">
+                {selectedPdf ? selectedPdf.name : "Ningún archivo seleccionado"}
               </span>
             </div>
-
-            <label className="flex items-start gap-2 text-sm text-gray-800">
-              <input
-                type="checkbox"
-                checked={useGeminiForOcr}
-                onChange={(e) => setUseGeminiForOcr(e.target.checked)}
-                className="mt-1"
-              />
-              <span>
-                Activar OCR con IA (Gemini): mas preciso pero un poco mas lento.
-              </span>
+            <label className="flex items-start gap-2 text-base">
+              <input type="checkbox" checked={useGemini} onChange={(event) => setUseGemini(event.target.checked)} className="mt-1 h-5 w-5 accent-blue-700" />
+              Usar inteligencia artificial (Gemini) para leer mejor el PDF. Es más precisa, pero un poco más lenta.
             </label>
-
-            {pdfUploadError && (
-              <p className="text-sm text-red-600">{pdfUploadError}</p>
+            {uploadError && (
+              <p role="alert" className="font-semibold text-red-800">
+                {uploadError}
+              </p>
             )}
           </div>
-
           <DialogFooter>
-            <button
-              type="button"
-              onClick={() => setIsUploadModalOpen(false)}
-              className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-50"
-            >
+            <button type="button" onClick={() => setUploadOpen(false)} className="min-h-11 rounded-md border border-gray-500 px-4 font-semibold">
               Cancelar
             </button>
             <button
               type="button"
-              onClick={() => void handleProcessUploadedPdf()}
-              disabled={isParsingPdf}
-              className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+              onClick={() => void processPdf()}
+              disabled={parsing}
+              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-blue-700 px-4 font-semibold text-white hover:bg-blue-800 disabled:opacity-70"
             >
-              {isParsingPdf ? "Procesando..." : "Aceptar y procesar PDF"}
+              {parsing && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {parsing ? "Procesando…" : "Procesar PDF"}
             </button>
           </DialogFooter>
         </DialogContent>

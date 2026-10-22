@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CVData } from "../components/cv-form";
+import type { CVData } from "../dto/cv-data";
 import {
   Briefcase,
   MapPin,

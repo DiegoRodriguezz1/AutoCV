@@ -1,4 +1,4 @@
-import { CVData } from "../components/cv-form";
+import type { CVData } from "./cv-data";
 
 export interface SocialNetworkDTO {
   network: string;

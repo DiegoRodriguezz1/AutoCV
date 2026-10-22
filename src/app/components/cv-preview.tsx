@@ -1,5 +1,5 @@
 import { Mail, MapPin, Phone, FileText, Calendar } from "lucide-react";
-import { CVData } from "./cv-form";
+import type { CVData } from "../dto/cv-data";
 
 interface CVPreviewProps {
   data: CVData;
@@ -48,7 +48,7 @@ export function CVPreview({
   const formattedDate = `${today.toLocaleString("es-ES", { month: "long", year: "numeric" })}`;
 
   return (
-    <div className="h-full overflow-y-auto p-6 bg-gray-50">
+    <div className="h-full overflow-y-auto p-6 bg-gray-50" tabIndex={0} role="region" aria-label="Vista previa del CV (desplazable)">
       <div id="cv-preview" className="max-w-3xl mx-auto bg-white shadow-lg p-12">
         {isEmpty ? (
           <div className="text-center py-16 text-gray-400">
