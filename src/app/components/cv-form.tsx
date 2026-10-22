@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { isValidEmail, getPhoneErrorMessage } from "../dto/cv-api";
+import { searchCountries, searchEscoOccupations, searchEscoSkills, EscoSkillSuggestion } from "../services/experiment-api";
 
 /**
  * Filtra solo dígitos de un string de teléfono
@@ -57,6 +58,10 @@ function areErrorMapsEqual(
 export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+  const [skillQuery, setSkillQuery] = useState("");
+  const [skillSuggestions, setSkillSuggestions] = useState<EscoSkillSuggestion[]>([]);
+  const [occupationSuggestions, setOccupationSuggestions] = useState<string[]>([]);
+  const [countrySuggestions, setCountrySuggestions] = useState<string[]>([]);
 
   const markFieldAsTouched = (fieldName: string) => {
     setTouchedFields((prev) => (prev[fieldName] ? prev : { ...prev, [fieldName]: true }));
@@ -92,6 +97,40 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
     onValidationChange?.(isValid, errorsToNotify);
   }, [data.personalInfo, onValidationChange, touchedFields]);
 
+  useEffect(() => {
+    if (skillQuery.trim().length < 2) {
+      setSkillSuggestions([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void searchEscoSkills(skillQuery).then((result) => setSkillSuggestions(result.skills)).catch(() => setSkillSuggestions([]));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [skillQuery]);
+
+  useEffect(() => {
+    const query = data.personalInfo.location;
+    if (query.trim().length < 1) {
+      setCountrySuggestions([]);
+      return;
+    }
+    void searchCountries(query).then(setCountrySuggestions);
+  }, [data.personalInfo.location]);
+
+  useEffect(() => {
+    const query = data.experience[0]?.position ?? "";
+    if (query.trim().length < 2) {
+      setOccupationSuggestions([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void searchEscoOccupations(query)
+        .then((result) => setOccupationSuggestions(result.occupations.map((item) => item.title)))
+        .catch(() => setOccupationSuggestions([]));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [data.experience]);
+
   const renderFieldWithValidation = (
     label: string,
     value: string,
@@ -112,6 +151,7 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
         </label>
         <div className="relative">
           <input
+            id={`field-${fieldName}`}
             type={type}
             value={value}
             onChange={(e) => {
@@ -127,6 +167,9 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
                   : "border-gray-300 focus:ring-blue-500"
             }`}
             placeholder={placeholder}
+            aria-label={label}
+            aria-invalid={hasError}
+            list={fieldName === "location" ? "country-suggestions" : undefined}
           />
           {hasError && (
             <AlertCircle className="absolute right-3 top-2.5 w-5 h-5 text-red-500" />
@@ -289,6 +332,8 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
                 onChange={(e) => updateExperience(index, "position", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Cargo"
+                aria-label={`Cargo de experiencia ${index + 1}`}
+                list="occupation-suggestions"
               />
               <input
                 type="text"
@@ -296,6 +341,7 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
                 onChange={(e) => updateExperience(index, "company", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Empresa"
+                aria-label={`Empresa de experiencia ${index + 1}`}
               />
               <input
                 type="text"
@@ -303,12 +349,14 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
                 onChange={(e) => updateExperience(index, "duration", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Duracion (Ej: 2024-02 - present)"
+                aria-label={`Duracion de experiencia ${index + 1}`}
               />
               <textarea
                 value={exp.description}
                 onChange={(e) => updateExperience(index, "description", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
                 placeholder="Responsabilidades y logros..."
+                aria-label={`Responsabilidades y logros de experiencia ${index + 1}`}
               />
             </div>
           </div>
@@ -343,6 +391,7 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
                 onChange={(e) => updateEducation(index, "degree", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Titulo/Grado"
+                aria-label={`Titulo de educacion ${index + 1}`}
               />
               <input
                 type="text"
@@ -350,6 +399,7 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
                 onChange={(e) => updateEducation(index, "institution", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Institucion"
+                aria-label={`Institucion educativa ${index + 1}`}
               />
               <input
                 type="text"
@@ -357,6 +407,7 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
                 onChange={(e) => updateEducation(index, "year", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Anio o rango (Ej: 2022-01 - 2024-01)"
+                aria-label={`Periodo de educacion ${index + 1}`}
               />
             </div>
           </div>
@@ -370,12 +421,46 @@ export function CVForm({ data, onChange, onValidationChange }: CVFormProps) {
         </label>
         <input
           type="text"
-          value={data.skills.join(", ")}
-          onChange={(e) => updateSkills(e.target.value)}
+          value={skillQuery || data.skills.join(", ")}
+          onChange={(e) => {
+            setSkillQuery(e.target.value);
+            updateSkills(e.target.value);
+          }}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Java, React, FastAPI, AWS, ..."
+          aria-label="Habilidades profesionales separadas por comas"
+          aria-describedby="esco-announcement"
         />
+        {skillSuggestions.length > 0 && (
+          <ul role="listbox" aria-label="Sugerencias ESCO" className="mt-2 border border-gray-200 rounded-md bg-white">
+            {skillSuggestions.map((suggestion) => (
+              <li key={suggestion.uri}>
+                <button
+                  type="button"
+                  role="option"
+                  className="w-full text-left px-3 py-2 hover:bg-blue-50"
+                  onClick={() => {
+                    setSkillQuery(suggestion.title);
+                    updateSkills(suggestion.title);
+                    setSkillSuggestions([]);
+                  }}
+                >
+                  {suggestion.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p id="esco-announcement" className="sr-only" aria-live="polite">
+          {skillSuggestions.length ? `${skillSuggestions.length} sugerencias ESCO disponibles.` : ""}
+        </p>
       </section>
+      <datalist id="country-suggestions">
+        {countrySuggestions.map((country) => <option key={country} value={country} />)}
+      </datalist>
+      <datalist id="occupation-suggestions">
+        {occupationSuggestions.map((occupation) => <option key={occupation} value={occupation} />)}
+      </datalist>
     </div>
   );
 }

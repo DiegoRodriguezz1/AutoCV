@@ -4,6 +4,7 @@ import { LandingPage } from "./pages/landing";
 import { CVCreatorPage } from "./pages/cv-creator";
 import { JobsPage } from "./pages/jobs-page";
 import { ContactPage } from "./pages/contact";
+import { ResearchDashboardPage } from "./pages/research-dashboard";
 
 export const router = createBrowserRouter([
   {
@@ -25,6 +26,10 @@ export const router = createBrowserRouter([
       {
         path: "contact",
         Component: ContactPage,
+      },
+      {
+        path: "research",
+        Component: ResearchDashboardPage,
       },
     ],
   },

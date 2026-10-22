@@ -17,6 +17,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import {
+  recordExperimentEvent,
+  startExperimentSession,
+  submitExperimentSurvey,
+} from "../services/experiment-api";
 
 const AUTO_RENDER_IDLE_MS = 5000;
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
@@ -130,6 +135,19 @@ export function CVCreatorPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isFormValid, setIsFormValid] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [experimentSessionId, setExperimentSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void startExperimentSession().then((session) => {
+      setExperimentSessionId(session.id);
+      void recordExperimentEvent(session.id, "section_enter", "personal");
+    }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!experimentSessionId) return;
+    void recordExperimentEvent(experimentSessionId, "field_edit", "cv_data_changed");
+  }, [cvData, experimentSessionId]);
 
   const handleValidationChange = useCallback(
     (isValid: boolean, errors: Record<string, string>) => {
@@ -161,6 +179,9 @@ export function CVCreatorPage() {
 
     try {
       const payload = mapCVDataToCvRequest(cvData, selectedTheme);
+      if (experimentSessionId) {
+        void recordExperimentEvent(experimentSessionId, "cv_export", source);
+      }
       const result = await renderCv(payload);
 
       // Ignore stale responses if a newer request was fired.
@@ -212,6 +233,7 @@ export function CVCreatorPage() {
   }, [cvData, isFormValid, selectedTheme]);
 
   const handleApplyCV = () => {
+    if (experimentSessionId) void recordExperimentEvent(experimentSessionId, "session_end", "apply_cv");
     navigate("/jobs");
   };
 
