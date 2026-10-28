@@ -8,21 +8,22 @@ export interface SocialNetworkDTO {
 export interface EducationDTO {
   institution: string;
   area: string;
-  degree: string;
-  start_date: string;
-  end_date: string;
-  location: string;
-  highlights: string[];
+  /** RenderCV lo pinta en una columna angosta pensada para siglas (BSc, MSc); el título va en `area`. */
+  degree?: string;
+  start_date?: string;
+  end_date?: string;
+  location?: string;
+  highlights?: string[];
 }
 
 export interface ExperienceDTO {
   company: string;
   position: string;
-  start_date: string;
-  end_date: string;
-  location: string;
-  summary: string;
-  highlights: string[];
+  start_date?: string;
+  end_date?: string;
+  location?: string;
+  summary?: string;
+  highlights?: string[];
 }
 
 export interface SkillDTO {
@@ -92,7 +93,7 @@ export function isValidEmail(email: string): boolean {
   if (!trimmed) return false;
   
   // Regex: user@domain.XX (mínimo)
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@.]{2,}$/;
   
   // Verificar que no termine en punto
   if (trimmed.endsWith(".")) return false;
@@ -198,106 +199,77 @@ export function cleanPhone(phone: string | undefined): string | undefined {
   return formatPhoneNumber(trimmed);
 }
 
-const splitSummaryToBullets = (summary: string): string[] => {
-  if (!summary.trim()) return [];
-  return summary
-    .split(/[\n\.]/)
-    .map((s) => s.trim())
+/** Párrafos o viñetas escritos por la persona: se separa por líneas, nunca por puntos ("S.A.S.", "3.5"). */
+export const splitLines = (text: string): string[] =>
+  text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-•*·]\s*/, "").trim())
     .filter(Boolean);
-};
+
+const CURRENT = /\b(present|presente|actual|actualmente)\b/i;
 
 /**
- * Genera valores por defecto para secciones vacías
- * Ayuda al usuario sin presionar con validaciones estrictas
+ * Extrae inicio y fin de textos como "2023-02 – 2026-06", "2023-02 – actual" o "2021".
+ * Sin fechas devuelve vacío: nunca se inventan.
  */
-const getDefaultSections = (data: CVData): CvSectionsDTO => {
+export const parseRange = (duration: string): { start: string; end: string } => {
+  const dates = duration.match(/\d{4}(?:-\d{2})?/g) ?? [];
+  const start = dates[0] ?? "";
+  const end = dates[1] ?? (start && CURRENT.test(duration) ? "present" : "");
+  return { start, end };
+};
+
+const withDates = <T extends object>(entry: T, duration: string): T & { start_date?: string; end_date?: string } => {
+  const { start, end } = parseRange(duration);
   return {
-    "Sobre mí": data.personalInfo.summary.trim()
-      ? splitSummaryToBullets(data.personalInfo.summary)
-      : [
-          "Profesional orientado a resultados y con capacidad analítica para resolver problemas.",
-          "Experiencia en desarrollo de software y tecnologías modernas.",
-          "Abierto a nuevas oportunidades y retos profesionales.",
-        ],
-    "Educación":
-      data.education.filter((edu) => edu.degree || edu.institution).length > 0
-        ? data.education
-            .filter((edu) => edu.degree || edu.institution)
-            .map((edu) => {
-              const range = parseRange(edu.year);
-              return {
-                institution: edu.institution || "Institución",
-                area: edu.degree || "Carrera",
-                degree: edu.degree || "Carrera",
-                start_date: range.start || "2020-01",
-                end_date: range.end || "present",
-                location: data.personalInfo.location || "Colombia",
-                highlights: [],
-              };
-            })
-        : [
-            {
-              institution: "Educación continua",
-              area: "Desarrollo profesional",
-              degree: "Formación",
-              start_date: "2024-01",
-              end_date: "present",
-              location: data.personalInfo.location || "Colombia",
-              highlights: ["Capacitación constante en tecnologías modernas"],
-            },
-          ],
-    "Experiencia":
-      data.experience.filter((exp) => exp.position || exp.company).length > 0
-        ? data.experience
-            .filter((exp) => exp.position || exp.company)
-            .map((exp) => {
-              const range = parseRange(exp.duration);
-              return {
-                company: exp.company || "Empresa",
-                position: exp.position || "Puesto",
-                start_date: range.start || "2024-01",
-                end_date: range.end || "present",
-                location: data.personalInfo.location || "Colombia",
-                summary: exp.description || "Desarrollo y mantenimiento de proyectos.",
-                highlights: exp.description
-                  ? splitSummaryToBullets(exp.description)
-                  : ["Contribución a proyectos significativos"],
-              };
-            })
-        : [
-            {
-              company: "Profesional Independiente",
-              position: "Desarrollador",
-              start_date: "2023-01",
-              end_date: "present",
-              location: data.personalInfo.location || "Colombia",
-              summary: "Desarrollo de proyectos con tecnologías modernas.",
-              highlights: ["Proyectos exitosos", "Trabajo con metodologías ágiles"],
-            },
-          ],
-    "Habilidades":
-      data.skills.length > 0
-        ? data.skills
-            .filter((skill) => skill.trim())
-            .map((skill) => ({
-              label: "Competencia técnica",
-              details: skill,
-            }))
-        : [
-            { label: "Desarrollo de Software", details: "JavaScript, TypeScript, React, Node.js" },
-            { label: "Bases de Datos", details: "SQL, MongoDB" },
-            { label: "Herramientas", details: "Git, Docker, REST APIs" },
-            { label: "Metodologías", details: "Agile, Scrum" },
-          ],
+    ...entry,
+    ...(start ? { start_date: start } : {}),
+    ...(start && end ? { end_date: end } : {}),
   };
 };
 
-// Intentamos extraer rango YYYY-MM del campo libre de duracion, y si no existe usamos fallback seguro.
-const parseRange = (duration: string): { start: string; end: string } => {
-  const matches = duration.match(/\d{4}-\d{2}|present/gi) ?? [];
-  const start = matches[0] ?? "";
-  const end = matches[1] ?? (start ? "present" : "");
-  return { start, end };
+/**
+ * Secciones del CV solo con lo que escribió la persona. Una sección vacía no se envía:
+ * el PDF de un participante nunca debe incluir contenido que no ingresó.
+ */
+export const buildSections = (data: CVData): CvSectionsDTO => {
+  const sections: CvSectionsDTO = {};
+
+  const summary = splitLines(data.personalInfo.summary);
+  if (summary.length) sections["Sobre mí"] = summary;
+
+  const education = data.education
+    .filter((edu) => edu.degree.trim() || edu.institution.trim())
+    .map((edu) =>
+      withDates(
+        {
+          institution: edu.institution.trim() || edu.degree.trim(),
+          area: edu.degree.trim() || edu.institution.trim(),
+        },
+        edu.year,
+      ),
+    );
+  if (education.length) sections["Educación"] = education;
+
+  const experience = data.experience
+    .filter((exp) => exp.position.trim() || exp.company.trim())
+    .map((exp) => {
+      const highlights = splitLines(exp.description);
+      return withDates(
+        {
+          company: exp.company.trim() || exp.position.trim(),
+          position: exp.position.trim() || exp.company.trim(),
+          ...(highlights.length ? { highlights } : {}),
+        },
+        exp.duration,
+      );
+    });
+  if (experience.length) sections["Experiencia"] = experience;
+
+  const skills = data.skills.map((skill) => skill.trim()).filter(Boolean);
+  if (skills.length) sections["Habilidades"] = [{ label: "Competencias", details: skills.join(", ") }];
+
+  return sections;
 };
 
 export function mapCVDataToCvRequest(
@@ -307,14 +279,11 @@ export function mapCVDataToCvRequest(
   // Construir CV base - MÍNIMO REQUERIDO: name
   const cvPayload: CvDTO = {
     name: data.personalInfo.name.trim() || "Profesional",
-    sections: getDefaultSections(data),
+    sections: buildSections(data),
   };
 
-  // Agregar headline si existe
-  const headline =
-    data.experience.find((exp) => exp.position)?.position ||
-    cleanOptionalString(data.personalInfo.summary)?.split(".")[0] ||
-    undefined;
+  // El titular es el cargo más reciente que escribió la persona (no una frase del perfil).
+  const headline = cleanOptionalString(data.experience.find((exp) => exp.position.trim())?.position);
   if (headline) {
     cvPayload.headline = headline;
   }

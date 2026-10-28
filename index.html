@@ -23,6 +23,25 @@
           }
         })(window.location);
       </script>
+      <script>
+        // Aplica las preferencias de accesibilidad antes del primer pintado, para que no se vea
+        // un destello del tema claro (misma lógica que src/app/a11y/preferences.tsx).
+        (function () {
+          var root = document.documentElement;
+          var prefs = {};
+          try {
+            prefs = JSON.parse(localStorage.getItem("autocv_a11y") || "{}") || {};
+          } catch (e) {}
+          var systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var dark = prefs.theme === "dark" || ((!prefs.theme || prefs.theme === "system") && systemDark);
+          root.dataset.theme = dark ? "dark" : "light";
+          if (dark) root.classList.add("dark");
+          root.dataset.contrast = prefs.highContrast ? "high" : "normal";
+          root.dataset.font = prefs.readableFont ? "legible" : "default";
+          root.dataset.motion = prefs.reduceMotion ? "reduce" : "auto";
+          if (prefs.textSize) root.style.setProperty("--font-size", prefs.textSize + "%");
+        })();
+      </script>
       <title>AutoCV | Crear CV Gratis Online y Hoja de Vida Profesional</title>
       <meta
         name="description"

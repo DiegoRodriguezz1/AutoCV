@@ -65,8 +65,24 @@ const INSTRUCTIONS: Record<StepId, (group: ExperimentGroup) => string> = {
   export: () => "Revisa tus datos y genera tu CV.",
 };
 
-export const canShowMetrics = () =>
-  import.meta.env.DEV || new URLSearchParams(window.location.search).get("investigador") === "1";
+const RESEARCHER_KEY = "autocv_investigador";
+
+/**
+ * El switch de métricas solo aparece en desarrollo o en "modo investigador", para no influir
+ * en los participantes. `?investigador=1` lo activa en este navegador (sobrevive a la
+ * navegación) y `?investigador=0` lo desactiva.
+ */
+export function canShowMetrics(): boolean {
+  if (import.meta.env.DEV) return true;
+  const param = new URLSearchParams(window.location.search).get("investigador");
+  try {
+    if (param === "1") localStorage.setItem(RESEARCHER_KEY, "1");
+    if (param === "0") localStorage.removeItem(RESEARCHER_KEY);
+    return localStorage.getItem(RESEARCHER_KEY) === "1";
+  } catch {
+    return param === "1";
+  }
+}
 
 function readMetricsPref(): boolean {
   try {

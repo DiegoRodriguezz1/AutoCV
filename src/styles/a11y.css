@@ -70,53 +70,119 @@ html[data-motion="reduce"] *::after {
   scroll-behavior: auto !important;
 }
 
-/* ---------- Modo oscuro ---------- */
+/* ---------- Modo oscuro: colores planos ----------
+ * Base #0f141b, superficies en dos pasos (#161d27, #1d2633), bordes #2c3747.
+ * Texto: #e8edf3 principal (15:1) y #b4bfcc secundario (9:1). Cada color de acento tiene
+ * un fondo oscuro propio y un tono claro para texto. Sin degradados.
+ */
 html[data-theme="dark"] {
   color-scheme: dark;
+  --dk-bg: #0f141b;
+  --dk-surface: #161d27;
+  --dk-raised: #1d2633;
+  --dk-border: #2c3747;
+  --dk-text: #e8edf3;
+  --dk-muted: #b4bfcc;
+  --color-white: #161d27;
   --color-gray-50: #0f141b;
-  --color-gray-100: #171e28;
-  --color-gray-200: #2a3443;
-  --color-gray-300: #3a4556;
-  --color-gray-400: #8592a3;
-  --color-gray-500: #9aa7b8;
-  --color-gray-600: #b6c1cf;
-  --color-gray-700: #ccd5e0;
-  --color-gray-800: #e3e9f0;
-  --color-gray-900: #eef2f7;
-  --color-gray-950: #f8fafc;
+  --color-gray-100: #1d2633;
+  --color-gray-200: #2c3747;
+  --color-gray-300: #3b4859;
+  --color-gray-400: #7d8a9c;
+  --color-gray-500: #9aa6b6;
+  --color-gray-600: #b4bfcc;
+  --color-gray-700: #c9d2dd;
+  --color-gray-800: #dde4ec;
+  --color-gray-900: #e8edf3;
+  --color-gray-950: #f5f7fa;
   --color-slate-50: #0f141b;
   --color-slate-100: #0f141b;
-  --color-slate-200: #2a3443;
-  --color-slate-300: #3a4556;
-  --color-slate-400: #8592a3;
-  --color-slate-500: #9aa7b8;
-  --color-slate-600: #b6c1cf;
-  --color-slate-700: #ccd5e0;
-  --color-slate-800: #e3e9f0;
-  --color-slate-900: #eef2f7;
-  --color-blue-50: #172338;
-  --color-blue-100: #1c2d4a;
-  --color-blue-200: #29446f;
-  --color-red-50: #3a1717;
-  --color-red-200: #6b2a2a;
-  --color-green-50: #13301f;
-  --color-green-200: #24573a;
-  --color-yellow-50: #33290f;
-  --color-yellow-200: #5c4a17;
-  --color-emerald-50: #13301f;
-  --color-amber-50: #33290f;
+  --color-slate-200: #2c3747;
+  --color-slate-300: #3b4859;
+  --color-slate-400: #7d8a9c;
+  --color-slate-500: #9aa6b6;
+  --color-slate-600: #b4bfcc;
+  --color-slate-700: #c9d2dd;
+  --color-slate-800: #dde4ec;
+  --color-slate-900: #e8edf3;
+  /* Fondos de acento (tintes oscuros planos) */
+  --color-blue-50: #15233a;
+  --color-blue-100: #182a47;
+  --color-blue-200: #22406b;
+  --color-purple-50: #211a36;
+  --color-purple-100: #271f42;
+  --color-purple-200: #3a2d63;
+  --color-green-50: #122a1f;
+  --color-green-100: #153325;
+  --color-green-200: #1f4a35;
+  --color-emerald-50: #122a1f;
+  --color-red-50: #361616;
+  --color-red-200: #622727;
+  --color-yellow-50: #2e2610;
+  --color-yellow-200: #574618;
+  --color-amber-50: #2e2610;
+  /* Botones: azul más profundo para que el texto blanco quede en 6:1 */
+  --color-blue-600: #2459d6;
+  --color-blue-700: #1d4bb8;
+  --color-blue-800: #183f9c;
   --background: #0f141b;
-  --foreground: #eef2f7;
+  --foreground: #e8edf3;
 }
 html[data-theme="dark"] body {
-  background: #0f141b;
-  color: #eef2f7;
+  background: var(--dk-bg);
+  color: var(--dk-text);
 }
-html[data-theme="dark"] .bg-white {
-  background-color: #171e28;
+/* Fondos que ya eran oscuros a propósito (pie de página) siguen oscuros: la escala gris se invierte. */
+html[data-theme="dark"] :is(.bg-gray-900, .bg-gray-950, .bg-slate-900) {
+  background-color: #0a0e13;
+  border-top: 1px solid var(--dk-border);
 }
+html[data-theme="dark"] :is(.bg-gray-800, .bg-slate-800) {
+  background-color: var(--dk-raised);
+}
+/* "text-white" sobre botones de color se queda blanco (--color-white ahora es la superficie). */
+html[data-theme="dark"] .text-white {
+  color: #ffffff;
+}
+html[data-theme="dark"] .border-white {
+  border-color: #ffffff;
+}
+
+/* Sin degradados: cada bloque toma un color plano. */
+html[data-theme="dark"] [class*="bg-gradient-to-"] {
+  background-image: none !important;
+}
+html[data-theme="dark"] [class*="bg-gradient-to-"][class*="rounded"] {
+  background-color: var(--dk-surface);
+  border: 1px solid var(--dk-border);
+}
+html[data-theme="dark"] [class*="bg-gradient-to-"][class*="rounded"][class*="from-blue-50"] {
+  background-color: var(--color-blue-50);
+  border-color: var(--color-blue-200);
+}
+html[data-theme="dark"] [class*="bg-gradient-to-"][class*="rounded"][class*="from-purple-50"] {
+  background-color: var(--color-purple-50);
+  border-color: var(--color-purple-200);
+}
+html[data-theme="dark"] [class*="bg-gradient-to-"][class*="rounded"][class*="from-green-50"] {
+  background-color: var(--color-green-50);
+  border-color: var(--color-green-200);
+}
+/* Franjas destacadas (estadísticas y llamado final): azul sólido. */
+html[data-theme="dark"] [class*="bg-gradient-to-"][class*="from-blue-600"] {
+  background-color: #1b3a7a;
+}
+/* El halo difuminado detrás de imágenes no aporta en oscuro. */
+html[data-theme="dark"] .blur-3xl {
+  display: none;
+}
+
+/* Texto de acento: tonos claros con contraste ≥ 7:1 sobre la base. */
 html[data-theme="dark"] :is(.text-blue-600, .text-blue-700, .text-blue-800) {
   color: #93c5fd;
+}
+html[data-theme="dark"] :is(.text-purple-600, .text-purple-700) {
+  color: #c4b5fd;
 }
 html[data-theme="dark"] :is(.text-red-600, .text-red-700, .text-red-800) {
   color: #fca5a5;
@@ -127,16 +193,24 @@ html[data-theme="dark"] :is(.text-green-600, .text-green-700, .text-green-800, .
 html[data-theme="dark"] :is(.text-yellow-700, .text-yellow-800, .text-amber-700, .text-amber-800) {
   color: #fcd34d;
 }
+html[data-theme="dark"] .text-blue-100 {
+  color: #dbe7ff;
+}
 html[data-theme="dark"] :is(.border-red-700) {
   border-color: #fca5a5;
 }
 html[data-theme="dark"] :is(.border-emerald-700) {
   border-color: #86efac;
 }
+html[data-theme="dark"] :is(.border-gray-100, .border-blue-100, .border-purple-100, .border-green-100) {
+  border-color: var(--dk-border);
+}
+html[data-theme="dark"] :is(.shadow-lg, .shadow-xl, .shadow-2xl) {
+  box-shadow: 0 0 0 1px var(--dk-border);
+}
 html[data-theme="dark"] .bg-black\/50 {
   background-color: rgb(0 0 0 / 0.75);
 }
-
 /* ---------- Alto contraste (≥ 7:1) ---------- */
 html[data-contrast="high"] {
   --color-gray-200: #595959;

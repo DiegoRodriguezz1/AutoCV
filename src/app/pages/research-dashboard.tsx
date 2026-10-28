@@ -304,6 +304,13 @@ export function ResearchDashboardPage() {
             </Link>
             <h1 className="text-3xl font-bold">Consola del investigador</h1>
             <p className="text-base text-gray-800">Experimento A/B de AutoCV: datos registrados por el servidor a partir del registro de eventos.</p>
+            <p className="mt-1 text-base text-gray-800">
+              Para ver las métricas en vivo mientras llenas un CV, abre el{" "}
+              <Link to="/create?investigador=1" className="font-semibold text-blue-700 underline">
+                asistente en modo investigador
+              </Link>{" "}
+              y enciende «Ver métricas». Las sesiones donde se encienda quedan marcadas en los eventos.
+            </p>
           </div>
           <button
             type="button"
