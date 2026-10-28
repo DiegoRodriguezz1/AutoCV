@@ -67,13 +67,15 @@ const INSTRUCTIONS: Record<StepId, (group: ExperimentGroup) => string> = {
 
 const RESEARCHER_KEY = "autocv_investigador";
 
+/** VITE_SHOW_METRICS=true: el panel de métricas está disponible y encendido para todos. */
+const metricsAlwaysOn = () => import.meta.env.VITE_SHOW_METRICS === "true";
+
 /**
- * El switch de métricas solo aparece en desarrollo o en "modo investigador", para no influir
- * en los participantes. `?investigador=1` lo activa en este navegador (sobrevive a la
- * navegación) y `?investigador=0` lo desactiva.
+ * El switch de métricas aparece en desarrollo, con VITE_SHOW_METRICS=true o en "modo
+ * investigador" (`?investigador=1` lo activa en este navegador y `?investigador=0` lo quita).
  */
 export function canShowMetrics(): boolean {
-  if (import.meta.env.DEV) return true;
+  if (import.meta.env.DEV || metricsAlwaysOn()) return true;
   const param = new URLSearchParams(window.location.search).get("investigador");
   try {
     if (param === "1") localStorage.setItem(RESEARCHER_KEY, "1");
@@ -86,9 +88,11 @@ export function canShowMetrics(): boolean {
 
 function readMetricsPref(): boolean {
   try {
-    return localStorage.getItem(METRICS_KEY) === "1";
+    const stored = localStorage.getItem(METRICS_KEY);
+    // Con VITE_SHOW_METRICS arranca encendido, salvo que la persona lo haya apagado.
+    return stored === null ? metricsAlwaysOn() : stored === "1";
   } catch {
-    return false;
+    return metricsAlwaysOn();
   }
 }
 
@@ -158,6 +162,13 @@ export function CvWizard({ open, session, initialDraft, onClose, onRestart }: Cv
   useEffect(() => {
     saveDraft({ sessionId: session.id, data, stepIndex, maxStep, phase });
   }, [session.id, data, stepIndex, maxStep, phase]);
+
+  // Si el panel arranca encendido (VITE_SHOW_METRICS o preferencia guardada), la sesión
+  // también queda marcada, igual que cuando se enciende a mano.
+  useEffect(() => {
+    if (open && metricsOn) enqueueEvent(session.id, "field_edit", { field: "metrics_panel", initial: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.id, open]);
 
   // Cada vez que se entra a un paso: evento, foco en el título y anuncio.
   useEffect(() => {
