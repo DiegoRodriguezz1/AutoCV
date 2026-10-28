@@ -252,19 +252,19 @@ export function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8 text-center">
             <div>
               <div className="text-5xl mb-2">500K+</div>
-              <p className="text-blue-100 text-lg">CVs Creados</p>
+              <p className="text-white text-lg">CVs Creados</p>
             </div>
             <div>
               <div className="text-5xl mb-2">15min</div>
-              <p className="text-blue-100 text-lg">Tiempo Promedio</p>
+              <p className="text-white text-lg">Tiempo Promedio</p>
             </div>
             <div>
               <div className="text-5xl mb-2">95%</div>
-              <p className="text-blue-100 text-lg">Satisfacción</p>
+              <p className="text-white text-lg">Satisfacción</p>
             </div>
             <div>
               <div className="text-5xl mb-2">24/7</div>
-              <p className="text-blue-100 text-lg">Disponibilidad</p>
+              <p className="text-white text-lg">Disponibilidad</p>
             </div>
           </div>
         </div>
@@ -330,7 +330,7 @@ export function LandingPage() {
               que se vea increíble. Perfecto para profesionales ocupados."
             </p>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center text-green-700">
+              <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center text-green-800">
                 AS
               </div>
               <div>
@@ -346,7 +346,7 @@ export function LandingPage() {
       <section className="px-6 py-20 bg-gradient-to-br from-blue-600 to-purple-600">
         <div className="max-w-4xl mx-auto text-center text-white">
           <h2 className="text-5xl mb-6">¿Listo para destacar?</h2>
-          <p className="text-2xl mb-8 text-blue-100">
+          <p className="text-2xl mb-8 text-white">
             Únete a miles de profesionales que ya crearon su CV perfecto
           </p>
           <Link
@@ -357,14 +357,14 @@ export function LandingPage() {
             Crear mi CV en 15 minutos
             <ArrowRight className="w-6 h-6" />
           </Link>
-          <p className="mt-6 text-blue-100">
+          <p className="mt-6 text-white">
             No se requiere tarjeta de crédito • 100% Gratis • Sin compromisos
           </p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="px-6 py-12 bg-gray-900 text-gray-400">
+      <footer className="px-6 py-12 bg-gray-900 text-gray-300">
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <FileText className="w-6 h-6 text-blue-400" />
