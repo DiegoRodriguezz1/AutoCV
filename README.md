@@ -19,9 +19,14 @@
 
   - Backend: `VITE_API_BASE_URL` (por defecto `http://127.0.0.1:8000/api/v1`).
   - En desarrollo (`npm run dev`) aparece un selector para forzar el grupo A o B.
-  - El interruptor **Ver métricas** del modal solo aparece en desarrollo o con `?investigador=1`
-    en la URL (por ejemplo `/create?investigador=1`). Arranca apagado y, si se enciende, queda
-    registrado (`field_edit` con `metrics_panel`) para poder excluir esa sesión del análisis.
+  - El interruptor **Ver métricas** del modal aparece:
+    - en desarrollo (`npm run dev`);
+    - en modo investigador: `/create?investigador=1` lo deja activo en ese navegador
+      (`?investigador=0` lo quita);
+    - para todos, si el build tiene `VITE_SHOW_METRICS=true` (en GitHub: Settings → Secrets and
+      variables → Actions → Variables). En ese caso el panel arranca encendido.
+    Cada sesión que ve el panel queda registrada (`field_edit` con `metrics_panel`) para poder
+    excluirla del análisis si hace falta.
   - La consola del investigador está en `/research` (gráficas A vs B y descarga de CSV). Si el
     backend tiene `RESEARCH_API_KEY`, escribe la clave en la consola.
 
