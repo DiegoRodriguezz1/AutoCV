@@ -5,6 +5,7 @@ import { CVCreatorPage } from "./pages/cv-creator";
 import { JobsPage } from "./pages/jobs-page";
 import { ContactPage } from "./pages/contact";
 import { ResearchDashboardPage } from "./pages/research-dashboard";
+import { YamlEditorPage } from "./pages/yaml-editor";
 
 export const router = createBrowserRouter([
   {
@@ -30,6 +31,10 @@ export const router = createBrowserRouter([
       {
         path: "research",
         Component: ResearchDashboardPage,
+      },
+      {
+        path: "yaml",
+        Component: YamlEditorPage,
       },
     ],
   },

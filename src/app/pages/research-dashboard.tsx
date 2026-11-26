@@ -311,6 +311,13 @@ export function ResearchDashboardPage() {
               </Link>{" "}
               y enciende «Ver métricas». Las sesiones donde se encienda quedan marcadas en los eventos.
             </p>
+            <p className="mt-1 text-base text-gray-800">
+              Las hojas de vida guardadas en YAML se editan en el{" "}
+              <Link to="/yaml" className="font-semibold text-blue-700 underline">
+                editor de YAML
+              </Link>
+              .
+            </p>
           </div>
           <button
             type="button"

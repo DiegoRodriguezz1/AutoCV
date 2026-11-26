@@ -138,6 +138,29 @@ export async function renderCv(
   return parseRenderResponse(result);
 }
 
+/** Renderiza un YAML de RenderCV tal cual, sin pasar por el formulario. */
+export async function renderCvYaml(
+  profileYaml: string,
+  outputName?: string,
+  apiUrl: string = DEFAULT_CV_API_URL,
+): Promise<RenderCvApiResponse> {
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ profile_yaml: profileYaml, output_name: outputName }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Error ${response.status}: ${text}`);
+  }
+
+  const result = (await response.json()) as unknown;
+  return parseRenderResponse(result);
+}
+
 export async function generateCvBase64(
   request: CvRequestDTO,
   apiUrl: string = DEFAULT_CV_API_URL,
