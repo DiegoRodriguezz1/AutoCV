@@ -104,7 +104,7 @@ async function raw(path: string, { research, headers, ...init }: RequestOptions 
   return response;
 }
 
-async function request<T>(path: string, options?: RequestOptions): Promise<T> {
+export async function request<T>(path: string, options?: RequestOptions): Promise<T> {
   const response = await raw(path, options);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
