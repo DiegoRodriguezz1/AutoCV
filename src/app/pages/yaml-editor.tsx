@@ -51,9 +51,23 @@ export function YamlEditorPage() {
   const [needsKey, setNeedsKey] = useState(false);
   const [keyInput, setKeyInput] = useState(getResearchKey);
   const gutterRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
 
   const dirty = name !== savedSnapshot.name || yaml !== savedSnapshot.yaml;
   const lineCount = yaml.split("\n").length;
+  // La API nombra primero la línea que hay que corregir ("Revisa la línea 55…").
+  const errorLine = Number(error?.match(/l[ií]nea (\d+)/)?.[1]) || null;
+
+  const goToLine = (line: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const lines = yaml.split("\n");
+    const start = lines.slice(0, line - 1).reduce((total, text) => total + text.length + 1, 0);
+    editor.focus();
+    editor.setSelectionRange(start, start + (lines[line - 1]?.length ?? 0));
+    // 24px por línea (leading-6); deja la línea un poco abajo del borde superior.
+    editor.scrollTop = Math.max(0, (line - 4) * 24);
+  };
 
   const handleError = useCallback((err: unknown, fallback: string) => {
     if (err instanceof ApiError && err.status === 401) setNeedsKey(true);
@@ -300,9 +314,23 @@ export function YamlEditorPage() {
 
         <p className="sr-only" role="status" aria-live="polite">{status}</p>
         {error && (
-          <p role="alert" className="whitespace-pre-wrap rounded-md border border-red-700 bg-red-50 p-3 font-semibold text-red-800">
-            {error}
-          </p>
+          <div role="alert" className="space-y-2 rounded-md border border-red-700 bg-red-50 p-3 text-red-800">
+            {error.includes("\n") ? (
+              // Los errores de validación de RenderCV vienen como tabla de texto: se conserva su forma.
+              <pre className="max-h-60 overflow-auto whitespace-pre font-mono text-xs">{error}</pre>
+            ) : (
+              <p className="font-semibold">{error}</p>
+            )}
+            {errorLine && errorLine <= lineCount && (
+              <button
+                type="button"
+                onClick={() => goToLine(errorLine)}
+                className="min-h-11 rounded-md border border-red-700 bg-white px-4 font-semibold text-red-800 hover:bg-red-50"
+              >
+                Ir a la línea {errorLine}
+              </button>
+            )}
+          </div>
         )}
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -319,6 +347,7 @@ export function YamlEditorPage() {
                 ))}
               </div>
               <textarea
+                ref={editorRef}
                 aria-labelledby="yaml-title"
                 value={yaml}
                 spellCheck={false}
